@@ -11,6 +11,12 @@ const idSchema = z.coerce.number().int().positive();
 const roleSchema = z.enum(['admin', 'manager', 'accountant', 'worker']);
 const adminResetPasswordSchema = z.object({ password: z.string().min(12).max(200) });
 const clockActionSchema = z.object({ action: z.enum(['clock_in', 'clock_out']) });
+const transactionSchema = z.object({
+  description: z.string().trim().min(1).max(255),
+  type: z.enum(['Income', 'Expense']),
+  amount: z.coerce.number().positive(),
+  idempotencyKey: z.string().uuid(),
+});
 const statusLabel = (value: unknown) => String(value).replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 
 const facilitySchema = z.object({ name: z.string().trim().min(1).max(150), type: z.string().trim().min(1).max(100), status: z.string().trim().min(1).max(50).default('operational'), healthPercent: z.coerce.number().min(0).max(100).default(100), note: z.string().trim().max(1000).optional() });
@@ -239,12 +245,36 @@ router.get('/transactions', allowRoles('admin', 'accountant'), async (_req, res,
 });
 router.post('/transactions', allowRoles('admin', 'accountant'), async (req, res, next) => {
   try {
-    const input = z.object({ description: z.string().trim().min(1).max(255), type: z.enum(['Income', 'Expense']), amount: z.coerce.number().positive() }).parse(req.body);
+    const input = transactionSchema.parse(req.body);
     const type = input.type.toLowerCase();
-    const [result] = await pool.execute('INSERT INTO transactions (transaction_date, description, type, amount, recorded_by_id) VALUES (CURRENT_DATE, ?, ?, ?, ?)', [input.description, type, type === 'expense' ? -input.amount : input.amount, req.session.user!.id]);
-    const id = (result as { insertId: number }).insertId;
-    await audit(req.session.user!.id, 'create', 'transaction', id);
-    res.status(201).json({ success: true, data: { id } });
+    const userId = req.session.user!.id;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      try {
+        const [result] = await connection.execute(
+          'INSERT INTO transactions (transaction_date, description, type, amount, recorded_by_id, idempotency_key) VALUES (CURRENT_DATE, ?, ?, ?, ?, ?)',
+          [input.description, type, type === 'expense' ? -input.amount : input.amount, userId, input.idempotencyKey],
+        );
+        const id = (result as { insertId: number }).insertId;
+        await connection.commit();
+        await audit(userId, 'create', 'transaction', id);
+        return res.status(201).json({ success: true, data: { id } });
+      } catch (error) {
+        await connection.rollback();
+        if ((error as { code?: string }).code === 'ER_DUP_ENTRY') {
+          const [rows] = await connection.execute(
+            'SELECT id FROM transactions WHERE recorded_by_id = ? AND idempotency_key = ? LIMIT 1',
+            [userId, input.idempotencyKey],
+          );
+          const existing = (rows as Array<{ id: number }>)[0];
+          if (existing) return res.json({ success: true, data: { id: existing.id }, idempotent: true });
+        }
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
   } catch (error) { next(error); }
 });
 router.get('/finance/summary', allowRoles('admin', 'accountant'), async (_req, res, next) => {
