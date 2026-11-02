@@ -42,11 +42,6 @@
         <button class="link-btn" onclick="goTo('reset')">Forgot password?</button>
       </div>
       <button class="btn-primary" onclick="handleLogin()">Sign in</button>
-      <div class="demo-box">
-        <b>Demo accounts</b> — password shown alongside username<br>
-        admin / admin123 &nbsp;·&nbsp; manager / manager123<br>
-        accountant / acc123 &nbsp;·&nbsp; worker / worker123
-      </div>
     </div>
   </div>
 </section>
@@ -94,7 +89,7 @@
         <div class="form-msg error" id="resetError3"></div>
         <div class="field">
           <label for="newPass1">New password</label>
-          <input id="newPass1" type="password" placeholder="At least 6 characters">
+          <input id="newPass1" type="password" minlength="12" placeholder="At least 12 characters">
         </div>
         <div class="field">
           <label for="newPass2">Confirm new password</label>

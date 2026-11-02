@@ -163,6 +163,12 @@ async function apiRequest(path, options={}){
     credentials:'include', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options,
   });
   const result = await response.json().catch(()=>({}));
+  if(response.status===401 && session){
+    session = null;
+    document.getElementById('shell').classList.add('hidden');
+    goTo('login');
+    showToastLikeMessage('Your session expired. Please sign in again.');
+  }
   if(!response.ok) throw new Error(result.error?.message || 'The server could not complete that request.');
   return result;
 }
@@ -180,7 +186,10 @@ async function hydrateData(){
   if(farm.status==='fulfilled') FARM_FIELDS = farm.value.data;
   if(train.status==='fulfilled') TRAINING_LOG = train.value.data;
   if(scale.status==='fulfilled') SCALE_LOGS = scale.value.data;
-  if(time.status==='fulfilled') TIME_LOG = time.value.data;
+  if(time.status==='fulfilled') {
+    TIME_LOG = time.value.data;
+    CLOCKED_IN = Boolean(time.value.clockedIn);
+  }
   if(transactions.status==='fulfilled') TRANSACTIONS = transactions.value.data;
   if(staff.status==='fulfilled') STAFF = staff.value.data;
   if(analytics.status==='fulfilled') ANALYTICS_SUMMARY = analytics.value.data;
@@ -272,7 +281,7 @@ async function resetStepThree(){
   hideErr('resetError3');
   const p1 = document.getElementById('newPass1').value;
   const p2 = document.getElementById('newPass2').value;
-  if(p1.length<6){ showErr('resetError3','Password must be at least 6 characters.'); return; }
+  if(p1.length<12){ showErr('resetError3','Password must be at least 12 characters.'); return; }
   if(p1!==p2){ showErr('resetError3','Passwords do not match.'); return; }
   try{
     const result = await apiRequest('/auth/reset/complete', {method:'POST', body:JSON.stringify({password:p1})});
@@ -582,28 +591,45 @@ function renderSettings(){
   <div class="grid cols-2">
     <div class="card">
       <div class="card-head"><h3>Farm profile</h3></div>
-      <div class="field"><label>Farm name</label><input value="${SETTINGS_PROFILE.farmName}" /></div>
-      <div class="field"><label>Timezone</label><input value="${SETTINGS_PROFILE.timezone}" /></div>
-      <div class="field"><label>Regional currency</label><select><option ${SETTINGS_PROFILE.regionalCost === 'UGX' ? 'selected' : ''}>UGX</option><option ${SETTINGS_PROFILE.regionalCost === 'USD' ? 'selected' : ''}>USD</option></select></div>
+      <div class="field"><label>Farm name</label><input id="settingsFarmName" value="${esc(SETTINGS_PROFILE.farmName)}" /></div>
+      <div class="field"><label>Timezone</label><input id="settingsTimezone" value="${esc(SETTINGS_PROFILE.timezone)}" /></div>
+      <div class="field"><label>Regional currency</label><select id="settingsCurrency"><option ${SETTINGS_PROFILE.regionalCost === 'UGX' ? 'selected' : ''}>UGX</option><option ${SETTINGS_PROFILE.regionalCost === 'USD' ? 'selected' : ''}>USD</option></select></div>
     </div>
     <div class="card">
       <div class="card-head"><h3>Notifications</h3></div>
       <div class="field-row" style="display:flex; align-items:center; justify-content:space-between;">
         <span>Daily alerts</span>
-        <input type="checkbox" ${SETTINGS_PROFILE.alerts ? 'checked' : ''} />
+        <input id="settingsAlerts" type="checkbox" ${SETTINGS_PROFILE.alerts ? 'checked' : ''} />
       </div>
       <div class="field-row" style="display:flex; align-items:center; justify-content:space-between;">
         <span>Auto sync</span>
-        <input type="checkbox" ${SETTINGS_PROFILE.autoSync ? 'checked' : ''} />
+        <input id="settingsAutoSync" type="checkbox" ${SETTINGS_PROFILE.autoSync ? 'checked' : ''} />
       </div>
-      <div class="field"><label>Digest cadence</label><select><option ${SETTINGS_PROFILE.notifications === 'Daily summary' ? 'selected' : ''}>Daily summary</option><option ${SETTINGS_PROFILE.notifications === 'Weekly summary' ? 'selected' : ''}>Weekly summary</option></select></div>
-      <button class="btn-primary" style="width:auto;">Save settings</button>
+      <div class="field"><label>Digest cadence</label><select id="settingsNotifications"><option ${SETTINGS_PROFILE.notifications === 'Daily summary' ? 'selected' : ''}>Daily summary</option><option ${SETTINGS_PROFILE.notifications === 'Weekly summary' ? 'selected' : ''}>Weekly summary</option></select></div>
+      <button class="btn-primary" style="width:auto;" onclick="saveSettings()">Save settings</button>
     </div>
   </div>`;
 }
 async function refreshSettings(){
   try { SETTINGS_PROFILE = (await apiRequest('/settings')).data; }
   catch (error) { console.warn(error.message || 'Unable to refresh settings data.'); }
+}
+async function saveSettings(){
+  const farmName = document.getElementById('settingsFarmName').value.trim();
+  const timezone = document.getElementById('settingsTimezone').value.trim();
+  if(!farmName || !timezone) return showToastLikeMessage('Farm name and timezone are required.');
+  const payload = {
+    farmName, timezone,
+    regionalCost: document.getElementById('settingsCurrency').value,
+    alerts: document.getElementById('settingsAlerts').checked,
+    autoSync: document.getElementById('settingsAutoSync').checked,
+    notifications: document.getElementById('settingsNotifications').value,
+  };
+  try{
+    await apiRequest('/settings', {method:'PUT', body:JSON.stringify(payload)});
+    SETTINGS_PROFILE = payload;
+    showToastLikeMessage('Settings saved.');
+  }catch(error){ showToastLikeMessage(error.message || 'Unable to save settings.'); }
 }
 
 function renderPlaceholder(mod){
