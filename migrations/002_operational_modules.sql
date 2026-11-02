@@ -1,0 +1,66 @@
+CREATE TABLE facilities (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL UNIQUE,
+  type VARCHAR(100) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'operational',
+  health_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+  note VARCHAR(1000) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE feed_inventory (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  item VARCHAR(150) NOT NULL UNIQUE,
+  quantity DECIMAL(12,2) NOT NULL DEFAULT 0,
+  unit VARCHAR(20) NOT NULL DEFAULT 'kg',
+  status VARCHAR(50) NOT NULL DEFAULT 'healthy',
+  expires_on DATE NULL,
+  reorder_level DECIMAL(12,2) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX feed_reorder (quantity, reorder_level)
+);
+
+CREATE TABLE farm_fields (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL UNIQUE,
+  crop VARCHAR(100) NOT NULL,
+  stage VARCHAR(100) NOT NULL,
+  expected_yield DECIMAL(12,2) NULL,
+  yield_unit VARCHAR(20) NOT NULL DEFAULT 't',
+  moisture_percent DECIMAL(5,2) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE training_sessions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  facilitator VARCHAR(150) NOT NULL,
+  session_at DATETIME NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'scheduled',
+  priority VARCHAR(50) NOT NULL DEFAULT 'standard',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX training_session_at (session_at)
+);
+
+CREATE TABLE weigh_ins (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  animal_id INT UNSIGNED NOT NULL,
+  weight_kg DECIMAL(8,2) NOT NULL,
+  measured_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  note VARCHAR(1000) NULL,
+  recorded_by_id INT UNSIGNED NOT NULL,
+  FOREIGN KEY (animal_id) REFERENCES animals(id) ON DELETE CASCADE,
+  FOREIGN KEY (recorded_by_id) REFERENCES users(id),
+  INDEX weigh_ins_animal_measured (animal_id, measured_at)
+);
+
+CREATE TABLE farm_settings (
+  id TINYINT UNSIGNED PRIMARY KEY,
+  farm_name VARCHAR(150) NOT NULL,
+  timezone VARCHAR(100) NOT NULL DEFAULT 'Africa/Kampala',
+  alerts BOOLEAN NOT NULL DEFAULT TRUE,
+  auto_sync BOOLEAN NOT NULL DEFAULT FALSE,
+  currency CHAR(3) NOT NULL DEFAULT 'UGX',
+  notifications VARCHAR(50) NOT NULL DEFAULT 'Daily summary',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
