@@ -46,57 +46,15 @@
   </div>
 </section>
 
-<!-- ============ RESET PASSWORD VIEW ============ -->
+<!-- ============ PASSWORD HELP VIEW ============ -->
 <section id="view-reset" class="view">
   <div class="auth-wrap" style="grid-template-columns:1fr;">
     <div class="auth-form" style="max-width:440px; margin:0 auto; width:100%;">
       <div class="back-row" onclick="goTo('login')">← Back to sign in</div>
-      <div class="step-track">
-        <div class="step-dot active" id="stepDot1"><i></i></div>
-        <div class="step-dot" id="stepDot2"><i></i></div>
-        <div class="step-dot" id="stepDot3"><i></i></div>
-      </div>
-
-      <!-- Step 1: identify -->
-      <div id="resetStep1">
-        <h2>Reset your password</h2>
-        <div class="sub">Enter the username tied to your account.</div>
-        <div class="form-msg error" id="resetError1"></div>
-        <div class="field">
-          <label for="resetUser">Username</label>
-          <input id="resetUser" type="text" placeholder="e.g. jotieno">
-        </div>
-        <button class="btn-primary" onclick="resetStepOne()">Continue</button>
-      </div>
-
-      <!-- Step 2: security question -->
-      <div id="resetStep2" class="hidden">
-        <h2>Verify it's you</h2>
-        <div class="sub" id="resetQuestionText">Security question</div>
-        <div class="form-msg error" id="resetError2"></div>
-        <div class="form-msg info" id="resetCodeHint"></div>
-        <div class="field">
-          <label for="resetAnswer">Your answer</label>
-          <input id="resetAnswer" type="text" placeholder="Answer">
-        </div>
-        <button class="btn-primary" onclick="resetStepTwo()">Verify</button>
-      </div>
-
-      <!-- Step 3: new password -->
-      <div id="resetStep3" class="hidden">
-        <h2>Set a new password</h2>
-        <div class="sub">Choose something you haven't used before.</div>
-        <div class="form-msg error" id="resetError3"></div>
-        <div class="field">
-          <label for="newPass1">New password</label>
-          <input id="newPass1" type="password" minlength="12" placeholder="At least 12 characters">
-        </div>
-        <div class="field">
-          <label for="newPass2">Confirm new password</label>
-          <input id="newPass2" type="password" placeholder="Re-enter password">
-        </div>
-        <button class="btn-primary" onclick="resetStepThree()">Update password &amp; sign in</button>
-      </div>
+      <h2>Password help</h2>
+      <div class="sub">For your account's safety, password changes are handled by a farm administrator.</div>
+      <div class="form-msg info" style="display:block;">Contact your farm administrator to receive a new temporary password through a safe private channel.</div>
+      <button class="btn-primary" onclick="goTo('login')">Back to sign in</button>
     </div>
   </div>
 </section>

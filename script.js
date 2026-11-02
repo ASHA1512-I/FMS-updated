@@ -152,8 +152,7 @@ let SETTINGS_PROFILE = {
 /* ======================================================================
    SESSION / AUTH
 ====================================================================== */
-let session = null; // {username, role, name}
-let resetTarget = null; // username being reset
+let session = null; // {username, role, name, sessionVersion}
 let DASHBOARD = null;   // live dashboard counters from /api/dashboard
 let CHAT_CHANNEL_IDS = {};
 const API_BASE = '/api';
@@ -209,22 +208,6 @@ async function refreshDashboard(){
 function goTo(view){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
-  if(view==='reset'){
-    document.getElementById('resetStep1').classList.remove('hidden');
-    document.getElementById('resetStep2').classList.add('hidden');
-    document.getElementById('resetStep3').classList.add('hidden');
-    setStepDots(1);
-    document.getElementById('resetError1').style.display='none';
-    document.getElementById('resetUser').value='';
-  }
-}
-function setStepDots(n){
-  for(let i=1;i<=3;i++){
-    const el = document.getElementById('stepDot'+i);
-    el.classList.remove('active','done');
-    if(i<n) el.classList.add('done');
-    if(i===n) el.classList.add('active');
-  }
 }
 function showErr(id, msg){
   const el = document.getElementById(id);
@@ -251,46 +234,6 @@ async function handleLogout(){
   goTo('login');
 }
 
-async function resetStepOne(){
-  const u = document.getElementById('resetUser').value.trim().toLowerCase();
-  hideErr('resetError1');
-  if(!u){ showErr('resetError1','Enter your username.'); return; }
-  try{
-    const result = await apiRequest('/auth/reset/identify', {method:'POST', body:JSON.stringify({username:u})});
-    resetTarget = u;
-    document.getElementById('resetQuestionText').textContent = result.data.question;
-    document.getElementById('resetAnswer').value='';
-    document.getElementById('resetStep1').classList.add('hidden');
-    document.getElementById('resetStep2').classList.remove('hidden');
-    setStepDots(2);
-  }catch(error){ showErr('resetError1', error.message || 'No account found with that username.'); }
-}
-async function resetStepTwo(){
-  hideErr('resetError2');
-  const ans = document.getElementById('resetAnswer').value.trim();
-  if(!ans){ showErr('resetError2','Enter your answer.'); return; }
-  try{
-    await apiRequest('/auth/reset/verify', {method:'POST', body:JSON.stringify({answer:ans})});
-    document.getElementById('resetStep2').classList.add('hidden');
-    document.getElementById('resetStep3').classList.remove('hidden');
-    document.getElementById('newPass1').value=''; document.getElementById('newPass2').value='';
-    setStepDots(3);
-  }catch(error){ showErr('resetError2', error.message || 'That answer did not match our records. Please try again.'); }
-}
-async function resetStepThree(){
-  hideErr('resetError3');
-  const p1 = document.getElementById('newPass1').value;
-  const p2 = document.getElementById('newPass2').value;
-  if(p1.length<12){ showErr('resetError3','Password must be at least 12 characters.'); return; }
-  if(p1!==p2){ showErr('resetError3','Passwords do not match.'); return; }
-  try{
-    const result = await apiRequest('/auth/reset/complete', {method:'POST', body:JSON.stringify({password:p1})});
-    document.getElementById('loginUser').value = (result.data && result.data.username) || resetTarget || '';
-    document.getElementById('loginPass').value = '';
-    goTo('login');
-    showToastLikeMessage('Password updated. Sign in with your new password.');
-  }catch(error){ showErr('resetError3', error.message || 'Unable to update password.'); }
-}
 function showToastLikeMessage(msg){
   const el = document.getElementById('loginError');
   el.className='form-msg info'; el.textContent=msg; el.style.display='block';
@@ -1016,7 +959,7 @@ function renderUsers(){
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Modules accessible</th></tr></thead>
+      <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Modules accessible</th><th>Account</th></tr></thead>
       <tbody id="userRows"></tbody>
     </table>
   </div>`;
@@ -1024,15 +967,23 @@ function renderUsers(){
 async function refreshUsers(){
   const el = document.getElementById('userRows');
   if(!el) return;
-  // Keep the admin directory separate from the local auth seed (USERS) so the
-  // password-reset security questions are not overwritten by server rows.
   let directory = [];
   try{ directory = (await apiRequest('/users')).data; }
-  catch(error){ el.innerHTML = `<tr><td colspan="4">${esc(error.message)}</td></tr>`; return; }
+  catch(error){ el.innerHTML = `<tr><td colspan="5">${esc(error.message)}</td></tr>`; return; }
   el.innerHTML = directory.map(u=>{
     const modCount = MODULES.filter(m=>m.roles.includes(u.role)).length;
-    return `<tr><td>${esc(u.name)}</td><td style="font-family:var(--font-mono);color:var(--text-muted);">${esc(u.username)}</td><td><span class="tag green">${esc(ROLE_LABEL[u.role]||u.role)}</span></td><td>${modCount} of ${MODULES.length} modules</td></tr>`;
+    return `<tr><td>${esc(u.name)}</td><td style="font-family:var(--font-mono);color:var(--text-muted);">${esc(u.username)}</td><td><span class="tag green">${esc(ROLE_LABEL[u.role]||u.role)}</span></td><td>${modCount} of ${MODULES.length} modules</td><td><button class="btn-sm" data-reset-user="${Number(u.id)}" data-username="${esc(u.username)}">Reset password</button></td></tr>`;
   }).join('');
+  el.querySelectorAll('[data-reset-user]').forEach(button=>button.addEventListener('click', ()=>resetUserPassword(Number(button.dataset.resetUser), button.dataset.username || 'this user')));
+}
+async function resetUserPassword(userId, username){
+  const password = window.prompt(`Enter a temporary password for ${username} (at least 12 characters).`);
+  if(password === null) return;
+  if(password.length < 12){ showToastLikeMessage('Temporary passwords must be at least 12 characters.'); return; }
+  try{
+    await apiRequest(`/users/${userId}/reset-password`, {method:'POST', body:JSON.stringify({password})});
+    showToastLikeMessage(`Password reset for ${username}. Share it only through a safe private channel.`);
+  }catch(error){ showToastLikeMessage(error.message || 'Unable to reset this password.'); }
 }
 async function addUser(){
   const name = document.getElementById('uName').value.trim();
