@@ -40,7 +40,7 @@ router.patch('/:id', allowRoles('admin', 'manager', 'worker'), async (req, res, 
     const user = req.session.user!;
     const condition = user.role === 'worker' ? ' AND assignee_id = ?' : '';
     const params = user.role === 'worker' ? [id, user.id] : [id];
-    const [result] = await pool.execute(`UPDATE jobs SET status = 'done', completed_at = CURRENT_TIMESTAMP WHERE id = ?${condition}`, params);
+    const [result] = await pool.execute(`UPDATE jobs SET status = 'done', completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'open'${condition}`, params);
     if (!(result as { affectedRows: number }).affectedRows) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Job not found.' } });
     await audit(user.id, 'complete', 'job', id);
     res.json({ success: true });
