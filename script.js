@@ -829,6 +829,9 @@ async function refreshTime(){
   }
 }
 let clockRequestInFlight = false;
+let transactionRequestInFlight = false;
+let transactionDraftFingerprint = '';
+let transactionIdempotencyKey = '';
 async function toggleClock(){
   if(clockRequestInFlight) return;
   clockRequestInFlight = true;
@@ -850,7 +853,7 @@ function renderFinance(){
     <input id="tDesc" placeholder="Description" style="min-width:220px;">
     <select id="tType"><option value="Income">Income</option><option value="Expense">Expense</option></select>
     <input id="tAmount" type="number" placeholder="Amount (UGX)">
-    <button class="btn-sm primary" onclick="addTransaction()">${svg('plus',13)} Record entry</button>
+    <button id="recordTransactionButton" class="btn-sm primary" onclick="addTransaction()">${svg('plus',13)} Record entry</button>
   </div>
   <div class="card">
     <table>
@@ -869,16 +872,41 @@ async function refreshFinance(){
     <td><span class="tag ${t.type==='Income'?'green':'red'}">${esc(t.type)}</span></td>
     <td style="font-family:var(--font-mono);">${t.amount<0?'-':''}${formatUGX(Math.abs(t.amount))}</td></tr>`).join('');
 }
+function createTransactionIdempotencyKey(){
+  if(globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  if(!globalThis.crypto?.getRandomValues) throw new Error('Your browser cannot create a secure request key. Refresh and try again.');
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+function setTransactionRequestBusy(busy){
+  const button = document.getElementById('recordTransactionButton');
+  if(button){ button.disabled = busy; button.setAttribute('aria-busy', String(busy)); }
+}
 async function addTransaction(){
+  if(transactionRequestInFlight) return;
   const desc = document.getElementById('tDesc').value.trim();
   const type = document.getElementById('tType').value;
   let amt = parseFloat(document.getElementById('tAmount').value);
   if(!desc || isNaN(amt)) return;
+  const amount = Math.abs(amt);
+  const fingerprint = `${desc}\u0000${type}\u0000${amount}`;
+  if(transactionDraftFingerprint !== fingerprint){
+    transactionDraftFingerprint = fingerprint;
+    transactionIdempotencyKey = createTransactionIdempotencyKey();
+  }
+  transactionRequestInFlight = true;
+  setTransactionRequestBusy(true);
   try{
-    await apiRequest('/transactions', {method:'POST', body:JSON.stringify({description:desc, type, amount:Math.abs(amt)})});
+    await apiRequest('/transactions', {method:'POST', body:JSON.stringify({description:desc, type, amount, idempotencyKey:transactionIdempotencyKey})});
     document.getElementById('tDesc').value=''; document.getElementById('tAmount').value='';
+    transactionDraftFingerprint = '';
+    transactionIdempotencyKey = '';
     refreshFinance();
   }catch(error){ showToastLikeMessage(error.message || 'Unable to record transaction.'); }
+  finally{ transactionRequestInFlight = false; setTransactionRequestBusy(false); }
 }
 
 /* ---------- PEOPLE (manager + admin) ---------- */
