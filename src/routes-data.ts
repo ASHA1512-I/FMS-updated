@@ -112,11 +112,32 @@ router.get('/scale', allowRoles('admin', 'accountant'), async (_req, res, next) 
 router.post('/scale', allowRoles('admin', 'manager'), async (req, res, next) => {
   try {
     const input = weighInSchema.parse(req.body);
-    const [result] = await pool.execute('INSERT INTO weigh_ins (animal_id, weight_kg, measured_at, note, recorded_by_id) VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?)', [input.animalId, input.weightKg, input.measuredAt ?? null, input.note ?? null, req.session.user!.id]);
-    await pool.execute('UPDATE animals SET weight_kg = ? WHERE id = ?', [input.weightKg, input.animalId]);
-    const id = (result as { insertId: number }).insertId;
-    await audit(req.session.user!.id, 'create', 'weigh_in', id);
-    res.status(201).json({ success: true, data: { id } });
+    const measuredAt = input.measuredAt ?? new Date().toISOString();
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      // This stable parent-row lock serialises weigh-ins for one animal, even
+      // before it has a prior history row to lock.
+      const [animalRows] = await connection.execute('SELECT id FROM animals WHERE id = ? FOR UPDATE', [input.animalId]);
+      if (!(animalRows as Array<{ id: number }>)[0]) {
+        await connection.rollback();
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Animal not found.' } });
+      }
+      const [latestRows] = await connection.execute('SELECT measured_at FROM weigh_ins WHERE animal_id = ? ORDER BY measured_at DESC, id DESC LIMIT 1 FOR UPDATE', [input.animalId]);
+      const latest = (latestRows as Array<{ measured_at: Date | string }>)[0];
+      const [result] = await connection.execute('INSERT INTO weigh_ins (animal_id, weight_kg, measured_at, note, recorded_by_id) VALUES (?, ?, ?, ?, ?)', [input.animalId, input.weightKg, measuredAt, input.note ?? null, req.session.user!.id]);
+      const currentWeightUpdated = !latest || new Date(measuredAt).getTime() >= new Date(latest.measured_at).getTime();
+      if (currentWeightUpdated) await connection.execute('UPDATE animals SET weight_kg = ? WHERE id = ?', [input.weightKg, input.animalId]);
+      await connection.commit();
+      const id = (result as { insertId: number }).insertId;
+      await audit(req.session.user!.id, 'create', 'weigh_in', id);
+      return res.status(201).json({ success: true, data: { id, currentWeightUpdated } });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (error) { next(error); }
 });
 
