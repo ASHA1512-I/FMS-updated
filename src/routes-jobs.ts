@@ -2,10 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from './db';
 import { allowRoles, requireAuth } from './auth';
+import { audit } from './audit';
 
 const router = Router();
 const createJob = z.object({ title: z.string().trim().min(1).max(255), description: z.string().trim().max(2000).optional(), assigneeId: z.number().int().positive().nullable().optional(), assignee: z.string().trim().max(150).optional(), dueDate: z.string().date().nullable().optional(), priority: z.enum(['low', 'medium', 'high']) });
-
 router.use(requireAuth);
 
 router.get('/', async (req, res, next) => {
@@ -26,8 +26,10 @@ router.post('/', allowRoles('admin', 'manager'), async (req, res, next) => {
       const [users] = await pool.execute('SELECT id FROM users WHERE name = ? AND is_active = 1 LIMIT 1', [input.assignee]);
       assigneeId = (users as Array<{ id: number }>)[0]?.id ?? null;
     }
-    const [result] = await pool.execute('INSERT INTO jobs (title, description, assignee_id, due_date, status, priority, created_by_id) VALUES (?, ?, ?, ?, \'open\', ?, ?)', [input.title, input.description ?? null, assigneeId, input.dueDate ?? null, input.priority, req.session.user!.id]);
-    res.status(201).json({ success: true, data: { id: (result as { insertId: number }).insertId } });
+    const [result] = await pool.execute("INSERT INTO jobs (title, description, assignee_id, due_date, status, priority, created_by_id) VALUES (?, ?, ?, ?, 'open', ?, ?)", [input.title, input.description ?? null, assigneeId, input.dueDate ?? null, input.priority, req.session.user!.id]);
+    const id = (result as { insertId: number }).insertId;
+    await audit(req.session.user!.id, 'create', 'job', id);
+    res.status(201).json({ success: true, data: { id } });
   } catch (error) { next(error); }
 });
 
@@ -40,6 +42,7 @@ router.patch('/:id', allowRoles('admin', 'manager', 'worker'), async (req, res, 
     const params = user.role === 'worker' ? [id, user.id] : [id];
     const [result] = await pool.execute(`UPDATE jobs SET status = 'done', completed_at = CURRENT_TIMESTAMP WHERE id = ?${condition}`, params);
     if (!(result as { affectedRows: number }).affectedRows) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Job not found.' } });
+    await audit(user.id, 'complete', 'job', id);
     res.json({ success: true });
   } catch (error) { next(error); }
 });
