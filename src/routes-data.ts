@@ -9,6 +9,7 @@ const router = Router();
 router.use(requireAuth);
 const idSchema = z.coerce.number().int().positive();
 const roleSchema = z.enum(['admin', 'manager', 'accountant', 'worker']);
+const adminResetPasswordSchema = z.object({ password: z.string().min(12).max(200) });
 const statusLabel = (value: unknown) => String(value).replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 
 const facilitySchema = z.object({ name: z.string().trim().min(1).max(150), type: z.string().trim().min(1).max(100), status: z.string().trim().min(1).max(50).default('operational'), healthPercent: z.coerce.number().min(0).max(100).default(100), note: z.string().trim().max(1000).optional() });
@@ -233,6 +234,17 @@ router.post('/users', allowRoles('admin'), async (req, res, next) => {
     const id = (result as { insertId: number }).insertId;
     await audit(req.session.user!.id, 'create', 'user', id);
     res.status(201).json({ success: true, data: { id } });
+  } catch (error) { next(error); }
+});
+router.post('/users/:id/reset-password', allowRoles('admin'), async (req, res, next) => {
+  try {
+    const userId = idSchema.parse(req.params.id);
+    const { password } = adminResetPasswordSchema.parse(req.body);
+    const hash = await bcrypt.hash(password, 12);
+    const [result] = await pool.execute('UPDATE users SET password = ?, session_version = session_version + 1 WHERE id = ? AND is_active = 1', [hash, userId]);
+    if (!(result as { affectedRows: number }).affectedRows) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User account not found.' } });
+    await audit(req.session.user!.id, 'admin_password_reset', 'user', userId);
+    res.json({ success: true });
   } catch (error) { next(error); }
 });
 
