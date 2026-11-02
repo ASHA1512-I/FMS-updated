@@ -419,11 +419,11 @@ function renderFacility(){
       <tbody>
         ${FACILITIES.map(item => `
           <tr>
-            <td>${item.name}</td>
-            <td>${item.type}</td>
-            <td><span class="tag ${item.status === 'Operational' ? 'green' : item.status === 'Stocked' ? 'green' : item.status === 'Maintenance due' ? 'warn' : 'red'}">${item.status}</span></td>
-            <td>${item.health}</td>
-            <td>${item.note}</td>
+            <td>${esc(item.name)}</td>
+            <td>${esc(item.type)}</td>
+            <td><span class="tag ${item.status === 'Operational' ? 'green' : item.status === 'Stocked' ? 'green' : item.status === 'Maintenance due' ? 'warn' : 'red'}">${esc(item.status)}</span></td>
+            <td>${esc(item.health)}</td>
+            <td>${esc(item.note)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -450,11 +450,11 @@ function renderFeed(){
       <tbody>
         ${FEED_INVENTORY.map(item => `
           <tr>
-            <td>${item.item}</td>
-            <td>${item.stock}</td>
-            <td><span class="tag ${item.status === 'Healthy' || item.status === 'Dry' ? 'green' : 'warn'}">${item.status}</span></td>
-            <td>${item.expiry}</td>
-            <td>${item.reorder}</td>
+            <td>${esc(item.item)}</td>
+            <td>${esc(item.stock)}</td>
+            <td><span class="tag ${item.status === 'Healthy' || item.status === 'Dry' ? 'green' : 'warn'}">${esc(item.status)}</span></td>
+            <td>${esc(item.expiry)}</td>
+            <td>${esc(item.reorder)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -481,11 +481,11 @@ function renderFarm(){
       <tbody>
         ${FARM_FIELDS.map(field => `
           <tr>
-            <td>${field.name}</td>
-            <td>${field.crop}</td>
-            <td>${field.stage}</td>
-            <td>${field.yield}</td>
-            <td>${field.moisture}</td>
+            <td>${esc(field.name)}</td>
+            <td>${esc(field.crop)}</td>
+            <td>${esc(field.stage)}</td>
+            <td>${esc(field.yield)}</td>
+            <td>${esc(field.moisture)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -511,11 +511,11 @@ function renderTrain(){
       <tbody>
         ${TRAINING_LOG.map(item => `
           <tr>
-            <td>${item.title}</td>
-            <td>${item.trainer}</td>
-            <td>${item.next}</td>
-            <td><span class="tag ${item.status === 'Completed' ? 'green' : item.status === 'Scheduled' ? 'warn' : 'red'}">${item.status}</span></td>
-            <td>${item.level}</td>
+            <td>${esc(item.title)}</td>
+            <td>${esc(item.trainer)}</td>
+            <td>${esc(item.next)}</td>
+            <td><span class="tag ${item.status === 'Completed' ? 'green' : item.status === 'Scheduled' ? 'warn' : 'red'}">${esc(item.status)}</span></td>
+            <td>${esc(item.level)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -542,10 +542,10 @@ function renderScale(){
       <tbody>
         ${SCALE_LOGS.map(item => `
           <tr>
-            <td>${item.animal}</td>
-            <td>${item.weight}</td>
-            <td>${item.date}</td>
-            <td>${item.note}</td>
+            <td>${esc(item.animal)}</td>
+            <td>${esc(item.weight)}</td>
+            <td>${esc(item.date)}</td>
+            <td>${esc(item.note)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -563,10 +563,10 @@ function renderAnalytics(){
   return `
   <div class="toolbar"><div><h2>Analytics</h2><div class="desc">Cross-module reporting for production, costs, and team efficiency.</div></div></div>
   <div class="grid cols-4" style="margin-bottom:16px;">
-    <div class="stat-card"><div class="label">${svg('finance',15)} Milk output</div><div class="value">${ANALYTICS_SUMMARY.milkProduction}</div><div class="delta up">This week</div></div>
-    <div class="stat-card"><div class="label">${svg('scale',15)} Feed cost</div><div class="value">${ANALYTICS_SUMMARY.feedCost}</div><div class="delta flat">Budgeted</div></div>
-    <div class="stat-card"><div class="label">${svg('people',15)} Labour efficiency</div><div class="value">${ANALYTICS_SUMMARY.labourEfficiency}</div><div class="delta up">+2 pts</div></div>
-    <div class="stat-card"><div class="label">${svg('animal',15)} Herd health</div><div class="value">${ANALYTICS_SUMMARY.herdHealth}</div><div class="delta up">Stable</div></div>
+    <div class="stat-card"><div class="label">${svg('finance',15)} Milk output</div><div class="value">${esc(ANALYTICS_SUMMARY.milkProduction)}</div><div class="delta up">This week</div></div>
+    <div class="stat-card"><div class="label">${svg('scale',15)} Feed cost</div><div class="value">${esc(ANALYTICS_SUMMARY.feedCost)}</div><div class="delta flat">Budgeted</div></div>
+    <div class="stat-card"><div class="label">${svg('people',15)} Labour efficiency</div><div class="value">${esc(ANALYTICS_SUMMARY.labourEfficiency)}</div><div class="delta up">+2 pts</div></div>
+    <div class="stat-card"><div class="label">${svg('animal',15)} Herd health</div><div class="value">${esc(ANALYTICS_SUMMARY.herdHealth)}</div><div class="delta up">Stable</div></div>
   </div>
   <div class="card">
     <div class="card-head"><h3>Weekly trends</h3><span class="muted">Last 7 days</span></div>
@@ -721,7 +721,7 @@ function renderDashboard(){
     <div class="card">
       <div class="card-head"><h3>${chartLabel}</h3><span class="muted">Live</span></div>
       <div class="bar-chart">
-        ${chartData.map(d=>`<div class="bar-col"><div class="bar" style="height:${Math.max(6,(d.v/maxV)*100)}%"></div><div class="bar-label">${d.label}</div></div>`).join('')}
+        ${chartData.map(d=>`<div class="bar-col"><div class="bar" style="height:${Math.max(6,(d.v/maxV)*100)}%"></div><div class="bar-label">${esc(d.label)}</div></div>`).join('')}
       </div>
     </div>
     <div class="card">
@@ -806,7 +806,7 @@ async function completeJob(id){
   try{ await apiRequest('/jobs/'+id, {method:'PATCH', body:JSON.stringify({status:'done'})}); refreshJobs(); }
   catch(error){ showToastLikeMessage(error.message || 'Unable to complete task.'); }
 }
-function emptyRow(text){ return `<div class="list-row"><div class="list-main"><div class="s">${text}</div></div></div>`; }
+function emptyRow(text){ return `<div class="list-row"><div class="list-main"><div class="s">${esc(text)}</div></div></div>`; }
 
 /* ---------- ANIMAL ---------- */
 function renderAnimal(){
@@ -834,7 +834,7 @@ async function refreshAnimals(){
   if(!el) return;
   el.innerHTML = '<tr><td colspan="6">Loading animal records...</td></tr>';
   try{ ANIMALS = (await apiRequest('/animals')).data; }
-  catch(error){ el.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`; return; }
+  catch(error){ el.innerHTML = `<tr><td colspan="6">${esc(error.message)}</td></tr>`; return; }
   el.innerHTML = ANIMALS.map(a=>`
     <tr>
       <td style="font-family:var(--font-mono);color:var(--text-muted);">${esc(a.tag)}</td>
@@ -876,7 +876,7 @@ async function refreshTime(){
   const el = document.getElementById('timeRows');
   if(!el) return;
   try{ TIME_LOG = (await apiRequest('/time-logs')).data; }
-  catch(error){ el.innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`; return; }
+  catch(error){ el.innerHTML = `<tr><td colspan="5">${esc(error.message)}</td></tr>`; return; }
   el.innerHTML = TIME_LOG.map(t=>`<tr><td>${esc(t.name)}</td><td>${esc(t.date)}</td><td>${esc(t.in)}</td><td>${esc(t.out)}</td><td>${esc(t.hours)}</td></tr>`).join('');
   const btn = document.getElementById('clockBtn');
   const status = document.getElementById('clockStatusText');
@@ -916,7 +916,7 @@ async function refreshFinance(){
   const el = document.getElementById('finRows');
   if(!el) return;
   try{ TRANSACTIONS = (await apiRequest('/transactions')).data; }
-  catch(error){ el.innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`; return; }
+  catch(error){ el.innerHTML = `<tr><td colspan="4">${esc(error.message)}</td></tr>`; return; }
   el.innerHTML = TRANSACTIONS.map(t=>`
     <tr><td>${esc(t.date)}</td><td>${esc(t.desc)}</td>
     <td><span class="tag ${t.type==='Income'?'green':'red'}">${esc(t.type)}</span></td>
@@ -949,7 +949,7 @@ async function refreshStaff(){
   const el = document.getElementById('staffRows');
   if(!el) return;
   try{ STAFF = (await apiRequest('/staff')).data; }
-  catch(error){ el.innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`; return; }
+  catch(error){ el.innerHTML = `<tr><td colspan="4">${esc(error.message)}</td></tr>`; return; }
   el.innerHTML = STAFF.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.role)}</td><td>${esc(s.dept)}</td><td><span class="tag ${s.status==='Active'?'green':'warn'}">${esc(s.status)}</span></td></tr>`).join('');
 }
 
@@ -977,11 +977,15 @@ async function refreshChat(){
     const channels = (await apiRequest('/chat/channels')).data;
     CHAT_CHANNEL_IDS = Object.fromEntries(channels.map(c=>[c.channelName, c.id]));
     CHAT_CHANNELS = channels.map(c=>c.channelName);
-  }catch(error){ chEl.innerHTML = `<div>${error.message}</div>`; return; }
-  chEl.innerHTML = CHAT_CHANNELS.map(c=>`<div class="chat-channel ${c===activeChannel?'active':''}" onclick="setChannel('${esc(c).replace(/'/g, "\\'")}')">${esc(c)}</div>`).join('');
+  }catch(error){ chEl.innerHTML = `<div>${esc(error.message)}</div>`; return; }
+  if(!CHAT_CHANNELS.includes(activeChannel)) activeChannel = CHAT_CHANNELS[0] || '';
+  chEl.innerHTML = CHAT_CHANNELS.map((c, index)=>`<div class="chat-channel ${c===activeChannel?'active':''}" data-channel-index="${index}">${esc(c)}</div>`).join('');
+  chEl.querySelectorAll('[data-channel-index]').forEach(channel=>{
+    channel.addEventListener('click', ()=>setChannel(CHAT_CHANNELS[Number(channel.dataset.channelIndex)]));
+  });
   let msgs = [];
   try{ msgs = (await apiRequest('/chat/channels/'+CHAT_CHANNEL_IDS[activeChannel]+'/messages')).data.map(m=>({...m, from:m.from, me:m.userId===session.id})); }
-  catch(error){ document.getElementById('chatMsgs').innerHTML = `<div>${error.message}</div>`; return; }
+  catch(error){ document.getElementById('chatMsgs').innerHTML = `<div>${esc(error.message)}</div>`; return; }
   const msgEl = document.getElementById('chatMsgs');
   msgEl.innerHTML = msgs.length ? msgs.map(m=>`
     <div class="msg ${m.me?'me':''}">
