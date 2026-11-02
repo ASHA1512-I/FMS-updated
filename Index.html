@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Farm Manager — Connected Operations</title>
+<link rel="icon" type="image/jpeg" href="FMS.jpeg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN VIEW ============ -->
+<section id="view-login" class="view active">
+  <div class="auth-wrap">
+    <div class="auth-side">
+      <div>
+        <div class="eyebrow">Farm Manager</div>
+        <h1>The <span>ONE</span> Ecosystem<br>for your operation.</h1>
+        <p>Connected, intelligent, and built for agriculture. Every module below feeds the same live picture of the farm.</p>
+      </div>
+      <div class="hub-graphic" id="hubGraphic"></div>
+      <div class="flow-tags">
+        <span class="flow-tag">It connects</span>
+        <span class="flow-tag">It updates</span>
+        <span class="flow-tag">It moves across the operation</span>
+      </div>
+    </div>
+    <div class="auth-form">
+      <h2>Sign in</h2>
+      <div class="sub">Enter your credentials to reach your dashboard.</div>
+      <div class="form-msg error" id="loginError"></div>
+      <div class="field">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" type="text" autocomplete="username" placeholder="e.g. jotieno">
+      </div>
+      <div class="field">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <div class="field-row" style="margin-bottom:6px;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-muted);"><input type="checkbox" id="loginRemember" style="width:auto;">Keep me signed in</label>
+        <button class="link-btn" onclick="goTo('reset')">Forgot password?</button>
+      </div>
+      <button class="btn-primary" onclick="handleLogin()">Sign in</button>
+      <div class="demo-box">
+        <b>Demo accounts</b> — password shown alongside username<br>
+        admin / admin123 &nbsp;·&nbsp; manager / manager123<br>
+        accountant / acc123 &nbsp;·&nbsp; worker / worker123
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESET PASSWORD VIEW ============ -->
+<section id="view-reset" class="view">
+  <div class="auth-wrap" style="grid-template-columns:1fr;">
+    <div class="auth-form" style="max-width:440px; margin:0 auto; width:100%;">
+      <div class="back-row" onclick="goTo('login')">← Back to sign in</div>
+      <div class="step-track">
+        <div class="step-dot active" id="stepDot1"><i></i></div>
+        <div class="step-dot" id="stepDot2"><i></i></div>
+        <div class="step-dot" id="stepDot3"><i></i></div>
+      </div>
+
+      <!-- Step 1: identify -->
+      <div id="resetStep1">
+        <h2>Reset your password</h2>
+        <div class="sub">Enter the username tied to your account.</div>
+        <div class="form-msg error" id="resetError1"></div>
+        <div class="field">
+          <label for="resetUser">Username</label>
+          <input id="resetUser" type="text" placeholder="e.g. jotieno">
+        </div>
+        <button class="btn-primary" onclick="resetStepOne()">Continue</button>
+      </div>
+
+      <!-- Step 2: security question -->
+      <div id="resetStep2" class="hidden">
+        <h2>Verify it's you</h2>
+        <div class="sub" id="resetQuestionText">Security question</div>
+        <div class="form-msg error" id="resetError2"></div>
+        <div class="form-msg info" id="resetCodeHint"></div>
+        <div class="field">
+          <label for="resetAnswer">Your answer</label>
+          <input id="resetAnswer" type="text" placeholder="Answer">
+        </div>
+        <button class="btn-primary" onclick="resetStepTwo()">Verify</button>
+      </div>
+
+      <!-- Step 3: new password -->
+      <div id="resetStep3" class="hidden">
+        <h2>Set a new password</h2>
+        <div class="sub">Choose something you haven't used before.</div>
+        <div class="form-msg error" id="resetError3"></div>
+        <div class="field">
+          <label for="newPass1">New password</label>
+          <input id="newPass1" type="password" placeholder="At least 6 characters">
+        </div>
+        <div class="field">
+          <label for="newPass2">Confirm new password</label>
+          <input id="newPass2" type="password" placeholder="Re-enter password">
+        </div>
+        <button class="btn-primary" onclick="resetStepThree()">Update password &amp; sign in</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APP SHELL ============ -->
+<div class="shell hidden" id="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">FM</div>
+      <div class="brand-text">Farm Manager<small>ONE ECOSYSTEM</small></div>
+    </div>
+    <nav class="nav-scroll" id="navScroll"></nav>
+    <div class="side-foot">
+      <div class="user-chip">
+        <div class="avatar" id="sideAvatar">--</div>
+        <div class="user-meta">
+          <div class="name" id="sideName">—</div>
+          <div class="role" id="sideRole">—</div>
+        </div>
+        <button class="logout-btn" title="Sign out" onclick="handleLogout()">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="flow-strip"><b>Connects</b><span class="sep">→</span><b>Updates</b><span class="sep">→</span><b>Moves across the operation</b></div>
+      </div>
+      <div class="topbar-right">
+        <span class="pill" id="clockPill">--:--</span>
+        <span class="pill" id="datePill">--</span>
+      </div>
+    </header>
+    <main class="content" id="content"><!-- pages injected by JS --></main>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
