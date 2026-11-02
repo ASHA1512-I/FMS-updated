@@ -46,3 +46,11 @@ test('login validates the request before accessing the database', async () => {
   assert.equal(body.success, false);
   assert.equal(body.error.code, 'VALIDATION_ERROR');
 });
+
+test('self-service password reset is retired', async () => {
+  const response = await fetch(`${baseUrl}/api/auth/reset/identify`, { method: 'POST' });
+  assert.equal(response.status, 410);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, 'RESET_DISABLED');
+});
