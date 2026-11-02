@@ -828,9 +828,13 @@ async function refreshTime(){
     status.textContent = CLOCKED_IN ? 'You are clocked in since 6:02 AM' : 'You are clocked out';
   }
 }
+let clockRequestInFlight = false;
 async function toggleClock(){
-  try{ CLOCKED_IN = (await apiRequest('/time-logs/clock', {method:'POST'})).clockedIn; refreshTime(); }
+  if(clockRequestInFlight) return;
+  clockRequestInFlight = true;
+  try{ CLOCKED_IN = (await apiRequest('/time-logs/clock', {method:'POST', body: JSON.stringify({action: CLOCKED_IN ? 'clock_out' : 'clock_in'})})).clockedIn; refreshTime(); }
   catch(error){ showToastLikeMessage(error.message || 'Unable to update attendance.'); }
+  finally{ clockRequestInFlight = false; }
 }
 
 /* ---------- FINANCE (accountant + admin) ---------- */
