@@ -1,13 +1,15 @@
+# Local development only. This is not a public production deployment file.
 services:
   mysql:
     image: mysql:8.4
-    container_name: fms-mysql
+    container_name: fms-mysql-dev
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: farm_manager
-      MYSQL_ROOT_PASSWORD: ${FMS_MYSQL_ROOT_PASSWORD:-fms-local-root-password}
-    ports:
-      - "3306:3306"
+      MYSQL_USER: fms_app
+      MYSQL_PASSWORD: ${FMS_MYSQL_PASSWORD:?Set FMS_MYSQL_PASSWORD in your shell or .env}
+      MYSQL_ROOT_PASSWORD: ${FMS_MYSQL_ROOT_PASSWORD:?Set FMS_MYSQL_ROOT_PASSWORD in your shell or .env}
+    # Database is deliberately not published to the host network.
     volumes:
       - fms_mysql_data:/var/lib/mysql
     healthcheck:
@@ -17,31 +19,24 @@ services:
       retries: 20
 
   app:
-    image: node:22-alpine
-    container_name: fms-app
-    restart: unless-stopped
-    working_dir: /app
+    build: .
+    container_name: fms-app-dev
     depends_on:
       mysql:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: development
       PORT: 3000
       HOST: 0.0.0.0
-      SESSION_SECRET: ${FMS_SESSION_SECRET:-development-only-session-secret-change-me}
+      SESSION_SECRET: ${FMS_SESSION_SECRET:?Set FMS_SESSION_SECRET in your shell or .env}
       CORS_ORIGIN: http://localhost:3000
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: farm_manager
-      DB_USER: root
-      DB_PASSWORD: ${FMS_MYSQL_ROOT_PASSWORD:-fms-local-root-password}
-    volumes:
-      - .:/app
-      - fms_node_modules:/app/node_modules
-    command: ["sh", "-c", "if [ ! -x node_modules/.bin/tsx ]; then npm ci; fi && npm run db:migrate && npm run dev"]
+      DB_USER: fms_app
+      DB_PASSWORD: ${FMS_MYSQL_PASSWORD:?Set FMS_MYSQL_PASSWORD in your shell or .env}
 
 volumes:
   fms_mysql_data:
-  fms_node_modules:
