@@ -2,7 +2,6 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
 const roles = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'WORKER'];
-const normalized = value => String(value).trim().toLowerCase();
 
 async function seed() {
   if (process.env.NODE_ENV === 'production') {
@@ -14,19 +13,18 @@ async function seed() {
     host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3306), database: process.env.DB_NAME || 'farm_manager', user: process.env.DB_USER || 'root', password: process.env.DB_PASSWORD || '',
   });
   const users = [
-    { username: 'admin', name: 'Grace Nakato', password: process.env.SEED_ADMIN_PASSWORD, role: 'admin', department: 'Management', question: "Name of the farm's founder?", answer: 'milc' },
-    { username: 'manager', name: 'Peter Okello', password: process.env.SEED_MANAGER_PASSWORD, role: 'manager', department: 'Operations', question: 'First crop grown on the farm?', answer: 'maize' },
-    { username: 'accountant', name: 'Sarah Namuli', password: process.env.SEED_ACCOUNTANT_PASSWORD, role: 'accountant', department: 'Finance', question: "Farm's nearest town?", answer: 'mukono' },
-    { username: 'worker', name: 'James Otieno', password: process.env.SEED_WORKER_PASSWORD, role: 'worker', department: 'Livestock', question: 'Name of your first animal?', answer: 'bella' },
+    { username: 'admin', name: 'Grace Nakato', password: process.env.SEED_ADMIN_PASSWORD, role: 'admin', department: 'Management' },
+    { username: 'manager', name: 'Peter Okello', password: process.env.SEED_MANAGER_PASSWORD, role: 'manager', department: 'Operations' },
+    { username: 'accountant', name: 'Sarah Namuli', password: process.env.SEED_ACCOUNTANT_PASSWORD, role: 'accountant', department: 'Finance' },
+    { username: 'worker', name: 'James Otieno', password: process.env.SEED_WORKER_PASSWORD, role: 'worker', department: 'Livestock' },
   ];
-  for (const { username, name, password, role, department, question, answer } of users) {
+  for (const { username, name, password, role, department } of users) {
     if (password.length < 12) throw new Error(`SEED_${username.toUpperCase()}_PASSWORD must be at least 12 characters long`);
     const passwordHash = await bcrypt.hash(password, 12);
-    const answerHash = await bcrypt.hash(normalized(answer), 12);
     await connection.execute(
-      `INSERT INTO users (username, name, password, role, security_question, security_answer) VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = VALUES(name), role = VALUES(role), security_question = VALUES(security_question), security_answer = VALUES(security_answer)`,
-      [username, name, passwordHash, role, question, answerHash],
+      `INSERT INTO users (username, name, password, role) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), role = VALUES(role)`,
+      [username, name, passwordHash, role],
     );
     const [rows] = await connection.execute('SELECT id FROM users WHERE username = ?', [username]);
     await connection.execute('INSERT INTO staff (user_id, department) VALUES (?, ?) ON DUPLICATE KEY UPDATE department = VALUES(department)', [rows[0].id, department]);
