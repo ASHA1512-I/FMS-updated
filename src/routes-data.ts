@@ -10,6 +10,7 @@ router.use(requireAuth);
 const idSchema = z.coerce.number().int().positive();
 const roleSchema = z.enum(['admin', 'manager', 'accountant', 'worker']);
 const adminResetPasswordSchema = z.object({ password: z.string().min(12).max(200) });
+const clockActionSchema = z.object({ action: z.enum(['clock_in', 'clock_out']) });
 const statusLabel = (value: unknown) => String(value).replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 
 const facilitySchema = z.object({ name: z.string().trim().min(1).max(150), type: z.string().trim().min(1).max(100), status: z.string().trim().min(1).max(50).default('operational'), healthPercent: z.coerce.number().min(0).max(100).default(100), note: z.string().trim().max(1000).optional() });
@@ -186,19 +187,48 @@ router.get('/time-logs', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 router.post('/time-logs/clock', async (req, res, next) => {
+  const connection = await pool.getConnection();
   try {
     const userId = req.session.user!.id;
-    const [openRows] = await pool.execute('SELECT id FROM time_logs WHERE employee_id = ? AND clock_out_time IS NULL ORDER BY clock_in_time DESC LIMIT 1', [userId]);
-    const open = (openRows as Array<{ id: number }>)[0];
-    if (open) {
-      await pool.execute("UPDATE time_logs SET clock_out_time = CURRENT_TIMESTAMP, hours_worked = ROUND(TIMESTAMPDIFF(MINUTE, clock_in_time, CURRENT_TIMESTAMP) / 60, 2), status = 'completed' WHERE id = ?", [open.id]);
-      await audit(userId, 'clock_out', 'time_log', open.id);
-      return res.json({ success: true, clockedIn: false });
+    const { action } = clockActionSchema.parse(req.body);
+
+    // The employee row exists even before a first shift. Locking it serialises
+    // requests for one employee, including the otherwise-unlocked no-shift case.
+    await connection.beginTransaction();
+    const [employeeRows] = await connection.execute('SELECT id FROM users WHERE id = ? AND is_active = 1 FOR UPDATE', [userId]);
+    if (!(employeeRows as Array<{ id: number }>)[0]) {
+      await connection.rollback();
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User account is unavailable.' } });
     }
-    const [result] = await pool.execute("INSERT INTO time_logs (employee_id, date, clock_in_time, status) VALUES (?, CURRENT_DATE, CURRENT_TIMESTAMP, 'in_progress')", [userId]);
-    await audit(userId, 'clock_in', 'time_log', (result as { insertId: number }).insertId);
-    res.status(201).json({ success: true, clockedIn: true });
-  } catch (error) { next(error); }
+
+    const [openRows] = await connection.execute('SELECT id FROM time_logs WHERE employee_id = ? AND clock_out_time IS NULL ORDER BY clock_in_time DESC LIMIT 1 FOR UPDATE', [userId]);
+    const open = (openRows as Array<{ id: number }>)[0];
+
+    if (action === 'clock_in') {
+      if (open) {
+        await connection.commit();
+        return res.json({ success: true, clockedIn: true, alreadyClockedIn: true });
+      }
+      const [result] = await connection.execute("INSERT INTO time_logs (employee_id, date, clock_in_time, status) VALUES (?, CURRENT_DATE, CURRENT_TIMESTAMP, 'in_progress')", [userId]);
+      const id = (result as { insertId: number }).insertId;
+      await connection.commit();
+      await audit(userId, 'clock_in', 'time_log', id);
+      return res.status(201).json({ success: true, clockedIn: true });
+    }
+
+    if (!open) {
+      await connection.commit();
+      return res.json({ success: true, clockedIn: false, alreadyClockedOut: true });
+    }
+
+    await connection.execute("UPDATE time_logs SET clock_out_time = CURRENT_TIMESTAMP, hours_worked = ROUND(TIMESTAMPDIFF(MINUTE, clock_in_time, CURRENT_TIMESTAMP) / 60, 2), status = 'completed' WHERE id = ? AND employee_id = ? AND clock_out_time IS NULL", [open.id, userId]);
+    await connection.commit();
+    await audit(userId, 'clock_out', 'time_log', open.id);
+    return res.json({ success: true, clockedIn: false });
+  } catch (error) {
+    try { await connection.rollback(); } catch { /* no transaction to roll back */ }
+    next(error);
+  } finally { connection.release(); }
 });
 
 router.get('/transactions', allowRoles('admin', 'accountant'), async (_req, res, next) => {
