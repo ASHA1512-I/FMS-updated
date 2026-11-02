@@ -705,7 +705,7 @@ function renderJobs(){
     <input id="jobTitle" placeholder="New task title" style="min-width:240px;">
     <input id="jobAssignee" placeholder="Assign to (name)">
     <select id="jobPriority"><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select>
-    <button class="btn-sm primary" onclick="addJob()">${svg('plus',13)} Add task</button>
+    <button id="addJobButton" class="btn-sm primary" onclick="addJob()">${svg('plus',13)} Add task</button>
   </div>`:''}
   <div class="card"><div id="jobsList"></div></div>`;
 }
@@ -734,16 +734,30 @@ async function refreshJobs(){
       ${j.status==='open' ? `<button class="btn-sm" onclick="completeJob(${j.id})">${svg('check',13)} Mark done</button>` : `<span class="tag green">Done</span>`}
     </div>`).join('');
 }
+let jobRequestInFlight = false;
+let jobDraftFingerprint = '';
+let jobIdempotencyKey = '';
+function setJobRequestBusy(busy){
+  const button = document.getElementById('addJobButton');
+  if(button){ button.disabled = busy; button.setAttribute('aria-busy', String(busy)); }
+}
 async function addJob(){
+  if(jobRequestInFlight) return;
   const t = document.getElementById('jobTitle').value.trim();
   const a = document.getElementById('jobAssignee').value.trim() || 'Unassigned';
   const p = document.getElementById('jobPriority').value;
   if(!t) return;
+  const fingerprint = `${t}\u0000${a}\u0000${p}`;
+  if(jobDraftFingerprint !== fingerprint){ jobDraftFingerprint = fingerprint; jobIdempotencyKey = createTransactionIdempotencyKey(); }
+  jobRequestInFlight = true;
+  setJobRequestBusy(true);
   try{
-    await apiRequest('/jobs', {method:'POST', body:JSON.stringify({title:t, assignee:a, priority:p})});
+    await apiRequest('/jobs', {method:'POST', body:JSON.stringify({title:t, assignee:a, priority:p, idempotencyKey:jobIdempotencyKey})});
     document.getElementById('jobTitle').value=''; document.getElementById('jobAssignee').value='';
+    jobDraftFingerprint = ''; jobIdempotencyKey = '';
     refreshJobs();
   }catch(error){ showToastLikeMessage(error.message || 'Unable to create task.'); }
+  finally{ jobRequestInFlight = false; setJobRequestBusy(false); }
 }
 async function completeJob(id){
   try{ await apiRequest('/jobs/'+id, {method:'PATCH', body:JSON.stringify({status:'done'})}); refreshJobs(); }
