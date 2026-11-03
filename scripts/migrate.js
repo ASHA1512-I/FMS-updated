@@ -2,6 +2,12 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const mysql = require('mysql2/promise');
 
+try {
+  process.loadEnvFile('.env');
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
+
 async function migrate() {
 const connection = await mysql.createConnection({
   host: process.env.DB_HOST || '127.0.0.1',

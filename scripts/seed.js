@@ -1,6 +1,12 @@
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
+try {
+  process.loadEnvFile('.env');
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
+
 const roles = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'WORKER'];
 
 async function seed() {
