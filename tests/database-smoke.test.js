@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { app } = require('../dist/app');
+const { pool } = require('../dist/db');
 
 let server;
 let baseUrl;
@@ -15,6 +16,7 @@ test.before(async () => {
 
 test.after(async () => {
   await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  await pool.end();
 });
 
 test('migrated seeded database accepts the isolated manager account', async () => {
