@@ -158,9 +158,14 @@ let CHAT_CHANNEL_IDS = {};
 const API_BASE = '/api';
 
 async function apiRequest(path, options={}){
-  const response = await fetch(API_BASE + path, {
-    credentials:'include', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options,
-  });
+  let response;
+  try{
+    response = await fetch(API_BASE + path, {
+      credentials:'include', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options,
+    });
+  }catch{
+    throw new Error('FMS cannot reach its API. Start the app server, then open http://127.0.0.1:3000 instead of Index.html or Live Server.');
+  }
   const result = await response.json().catch(()=>({}));
   if(response.status===401 && session){
     session = null;
@@ -168,7 +173,11 @@ async function apiRequest(path, options={}){
     goTo('login');
     showToastLikeMessage('Your session expired. Please sign in again.');
   }
-  if(!response.ok) throw new Error(result.error?.message || 'The server could not complete that request.');
+  if(!response.ok){
+    const openedWithLiveServer = /^55\d{2}$/.test(window.location.port);
+    if(response.status===404 && openedWithLiveServer) throw new Error('You opened FMS with Live Server, which has no login API. Start the app server and open http://127.0.0.1:3000.');
+    throw new Error(result.error?.message || 'The server could not complete that request.');
+  }
   return result;
 }
 async function hydrateData(){
