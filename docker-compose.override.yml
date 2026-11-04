@@ -1,0 +1,6 @@
+# Local-development override. Compose loads this automatically with docker-compose.yml.
+# MySQL is reachable from this computer only, never from the LAN or Internet.
+services:
+  mysql:
+    ports:
+      - "127.0.0.1:3306:3306"
