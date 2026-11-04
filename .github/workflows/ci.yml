@@ -11,6 +11,33 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: fms_test
+          MYSQL_USER: fms_test
+          MYSQL_PASSWORD: ci-db-password-only
+          MYSQL_ROOT_PASSWORD: ci-root-password-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -pci-root-password-only --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: fms_test
+      DB_USER: fms_test
+      DB_PASSWORD: ci-db-password-only
+      SESSION_SECRET: ci-only-session-secret-not-for-production-123456
+      SEED_ADMIN_PASSWORD: ci-admin-password-only
+      SEED_MANAGER_PASSWORD: ci-manager-password-only
+      SEED_ACCOUNTANT_PASSWORD: ci-accountant-password-only
+      SEED_WORKER_PASSWORD: ci-worker-password-only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,4 +46,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm run db:migrate
+      - run: npm run db:seed
       - run: npm test
